@@ -26,9 +26,17 @@ class MainActivity : AppCompatActivity() {
      * Run some code
      */
     private fun runCode() {
-
-        Handler().post { log("Operation from runnable") }
-
+     /*   this one is long code with same output
+        val runnable = Runnable {
+            log("Operation from runnable")
+        }
+        val handler = Handler()
+        handler.post { runnable }
+        */
+        Handler().post { log("Operation from runnable with out delay") }
+        Handler().postDelayed({ log("Operation from runnable 1") },1000)
+        Handler().postDelayed({ log("Operation from runnable 2") },2000)
+        Handler().postDelayed({ log("Operation from runnable 3") },3000)
         log("Synchronous operation 1")
         log("Synchronous operation 2")
         log("Synchronous operation 3")
