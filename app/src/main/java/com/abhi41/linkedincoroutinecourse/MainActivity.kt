@@ -7,29 +7,38 @@ import android.os.Looper
 import android.os.Message
 import android.util.Log
 import android.widget.ScrollView
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import com.abhi41.linkedincoroutinecourse.Constants.LOG_TAG
 import com.abhi41.linkedincoroutinecourse.databinding.ActivityMainBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URL
 
-private const val MESSAGE_KEY = "message"
+const val fileUrl = "https://2833069.youcanlearnit.net/lorem_ipsum.txt"
+
 class MainActivity : AppCompatActivity() {
-    lateinit var binding: ActivityMainBinding
-    val handler = object :Handler(Looper.getMainLooper()){
-        override fun handleMessage(msg: Message) {
-            val bundle = msg.data
-            val message = bundle.getString(MESSAGE_KEY)
-            log(message ?: "message was null")
-        }
-    }
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var viewModel: MainViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         // Initialize button click handlers
         with(binding) {
             runButton.setOnClickListener { runCode() }
-            clearButton.setOnClickListener { clearOutput() }
+            clearButton.setOnClickListener {
+                viewModel.cancelJob()
+               // clearOutput()
+            }
         }
+        viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
+        viewModel.myData.observe(this, Observer {
+            log(it)
+        })
     }
 
     /**
@@ -37,22 +46,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun runCode() {
         //Shortest way to do this
-        val bundle = Bundle()
-        Thread{//this is runnable
-            for (i in 1..10){
-                bundle.putString(MESSAGE_KEY,"Looping $i")
-                Message().also {
-                    it.data = bundle
-                    handler.sendMessage(it)
-                }
-                Thread.sleep(1000)
-            }
-            bundle.putString(MESSAGE_KEY,"All done!")
-            Message().also {
-                it.data = bundle
-                handler.sendMessage(it)
-            }
-        }.start()
+        viewModel.doWork()
     }
 
     /**
