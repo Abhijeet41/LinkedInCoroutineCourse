@@ -7,6 +7,10 @@ import android.os.Looper
 import android.os.Message
 import android.util.Log
 import android.widget.ImageView
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.get
 import com.abhi41.linkedincoroutinecourse.Constants
 import com.abhi41.linkedincoroutinecourse.Constants.LOG_TAG
 import com.abhi41.linkedincoroutinecourse.R
@@ -32,21 +36,13 @@ class DiceRollingScreen : AppCompatActivity() {
         R.drawable.die_3, R.drawable.die_4,
         R.drawable.die_5, R.drawable.die_6,
     )
-    val handler = object : Handler(Looper.getMainLooper()) {
-        override fun handleMessage(msg: Message) {
-            val bundle = msg.data
-            val dieIndex = bundle?.getInt(DIE_INDEX_KEY) ?: 0
-            val dieValue = bundle?.getInt(DIE_VALUE_KEY) ?: 1
-            Log.i(LOG_TAG, "index:$dieIndex, value:$dieValue")
-            imageViews[dieIndex].setImageResource(drawables[dieValue - 1])
-        }
-    }
-
+    lateinit var viewModel: DiceViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityDiceRollingScreenBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        viewModel = ViewModelProvider(this).get(DiceViewModel::class.java)
 
         imageViews = listOf(
             binding.dice1, binding.dice2,
@@ -54,51 +50,13 @@ class DiceRollingScreen : AppCompatActivity() {
         )
 
         binding.btnRoll.setOnClickListener {
-           // rollTheDice()
-            CoroutineScope(Dispatchers.IO).launch {
-                rollDiceCoroutine()
-            }
+            viewModel.rollDice()
         }
+        viewModel.dieValue.observe(this, Observer {
+            imageViews[it.first].setImageResource(drawables[it.second - 1])
+        })
     }
 
-    private fun rollTheDice() {
 
-        for (dieIndex in imageViews.indices) {
-            thread(start = true) {
-                val bundle = Bundle()
-                Thread.sleep(dieIndex * 10L)
-                bundle.putInt(DIE_INDEX_KEY, dieIndex)
-                for (i in 1..18) {
-                    bundle.putInt(DIE_VALUE_KEY, getDieValue())
-                    Message().also {
-                        it.data = bundle
-                        handler.sendMessage(it)
-                    }
-                    Thread.sleep(50)
-                }
-            }
-        }
-    }
 
-    private suspend fun rollDiceCoroutine() {
-
-        for (diceIndex in imageViews.indices) {
-            CoroutineScope(Dispatchers.IO).launch{
-                delay(diceIndex * 10L)
-                for (i in 1..20) {
-                    withContext(Dispatchers.Main) {
-                        imageViews[diceIndex].setImageResource(drawables[getDieValue() - 1])
-                    }
-                    delay(50)
-                }
-            }
-
-        }
-
-    }
-
-    /*  get random number from 1 to 6  */
-    private fun getDieValue(): Int {
-        return Random.nextInt(1, 7)
-    }
 }
