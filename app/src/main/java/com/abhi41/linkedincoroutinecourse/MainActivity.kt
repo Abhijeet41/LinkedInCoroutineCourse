@@ -1,30 +1,35 @@
 package com.abhi41.linkedincoroutinecourse
 
-import android.app.Activity
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
-import android.os.Looper
-import android.os.ResultReceiver
 import android.util.Log
 import android.widget.ScrollView
-import androidx.lifecycle.ViewModelProvider
-import com.abhi41.linkedincoroutinecourse.Constants.FILE_CONTENTS_KEY
+import androidx.lifecycle.Observer
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.abhi41.linkedincoroutinecourse.Constants.DATA_KEY
 import com.abhi41.linkedincoroutinecourse.Constants.LOG_TAG
+import com.abhi41.linkedincoroutinecourse.Constants.MESSAGE_KEY
 import com.abhi41.linkedincoroutinecourse.databinding.ActivityMainBinding
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    lateinit var viewModel: MainViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
 
         with(binding) {
-            runButton.setOnClickListener { runCode() }
+            runButton.setOnClickListener {
+                //runCode()
+                runCodeCoroutineWorker()
+            }
             clearButton.setOnClickListener { clearOutput() }
         }
 
@@ -34,8 +39,62 @@ class MainActivity : AppCompatActivity() {
      * Run some code
      */
     private fun runCode() {
-        val receiver = MyResultReceiver(Handler(Looper.getMainLooper()))
-        viewModel.scheduleWork(application,receiver)
+
+        //setting constrains only star when network is available
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val workRequest = OneTimeWorkRequestBuilder<MyWorker>()
+            .setConstraints(constraints)
+            .build()
+        // WorkManager.getInstance(application).enqueue(workRequest)
+
+        //this one better to observe workmanager status
+        val workManager = WorkManager.getInstance(application)
+        workManager.enqueue(workRequest)
+        workManager.getWorkInfoByIdLiveData(workRequest.id)
+            .observe(this, Observer {
+                if (it.state == WorkInfo.State.SUCCEEDED) {
+                    val result = it.outputData.getString(DATA_KEY)
+                    log(result ?: "Null")
+                }
+            })
+
+    }
+
+    private fun runCodeCoroutineWorker() {
+
+        //setting constrains only star when network is available
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val workRequest = OneTimeWorkRequestBuilder<MyCoroutineWorker>()
+            .setConstraints(constraints)
+            .build()
+        // WorkManager.getInstance(application).enqueue(workRequest)
+
+        //this one better to observe workmanager status
+        val workManager = WorkManager.getInstance(application)
+        workManager.enqueue(workRequest)
+        workManager.getWorkInfoByIdLiveData(workRequest.id)
+            .observe(this, Observer {
+                when (it.state) {
+                    WorkInfo.State.SUCCEEDED -> {
+                        val result = it.outputData.getString(DATA_KEY)
+                        log(result ?: "Null")
+                    }
+
+                    WorkInfo.State.RUNNING -> {
+                        val progress = it.progress.getString(MESSAGE_KEY)
+                        if (progress != null) {
+                            log(progress)
+                        }
+                    }
+                }
+            })
+
     }
 
     /**
@@ -60,13 +119,4 @@ class MainActivity : AppCompatActivity() {
         Handler().post { binding.scrollView.fullScroll(ScrollView.FOCUS_DOWN) }
     }
 
-    private inner class MyResultReceiver(handler: Handler) :
-        ResultReceiver(handler) {
-        override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
-            if (resultCode == Activity.RESULT_OK) {
-                val fileContents = resultData?.getString(FILE_CONTENTS_KEY) ?: "null"
-                log(fileContents)
-            }
-        }
-    }
 }
